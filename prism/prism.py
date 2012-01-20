@@ -76,10 +76,11 @@ class CollectionManager(object):
     ]
     
     """
-    def __init__(self, connection, key_prefix=u'', format=DEFAULT_IMAGE_FORMAT, derivative_specs=[], blacklist=[]):
+    def __init__(self, connection, key_prefix=u'', default_image=None, format=DEFAULT_IMAGE_FORMAT, derivative_specs=[], blacklist=[]):
         """Stash the parameters for use on individual processing"""
         self.connection = connection
         self.key_prefix = key_prefix
+        self.default_image = default_image
         self.format = format
         self.derivative_specs = derivative_specs
         self.blacklist = blacklist
@@ -122,12 +123,18 @@ class CollectionManager(object):
         return image_hash
 
     def get_url(self, image_hash):
-        return u'{bucket_url}{key_prefix}{image_hash}'.format(
-            bucket_url=self.connection.bucket_url, key_prefix=self.key_prefix, image_hash=image_hash)
+        """Get the url, given this image_hash. Gets default if present and needed"""
+        key = image_hash if image_hash else self.default_image
+        if key:
+            return u'{bucket_url}{key_prefix}{key}'.format(
+                bucket_url=self.connection.bucket_url, key_prefix=self.key_prefix, key=key)
+        else:
+            return None
 
     def get_image(self, image_hash):
+        """Get the actual image of this hash"""
         url = self.get_url(image_hash)
-        return image_util.load_image_from_url(url)
+        return image_util.load_image_from_url(url) if url else None
 
     def _save_derivative_image(self, base_key, image, spec):
         """Generates and stores the derivative based upon a spec"""
