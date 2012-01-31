@@ -100,7 +100,7 @@ class CollectionManager(object):
         image = image_util.load_image_from_file(image_file)
         return self.process_image(image)
 
-    def process_image(self, image):
+    def process_image(self, image, save_original=True):
         """Process this image according to this collection's spec"""
         # Make sure we're playing with a valid image
         if not image:
@@ -112,10 +112,11 @@ class CollectionManager(object):
         if image_hash in self.blacklist:
             log.debug(u'image found in blacklist: {0}'.format(image_hash))
             return None
-        # Store the original
         key_prefix = u'{prefix}{image_hash}'.format(
             prefix=self.key_prefix, image_hash=image_hash)
-        self.connection.save_image(key_prefix, image, self.format)
+        # Store the original
+        if save_original:
+            self.connection.save_image(key_prefix, image, self.format)
         # Process each requested derivative
         for derivative_spec in self.derivative_specs:
             self._save_derivative_image(key_prefix, image, derivative_spec)
