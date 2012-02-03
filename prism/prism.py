@@ -9,8 +9,6 @@ from . import image_util
 
 
 
-DEFAULT_IMAGE_FORMAT = u'JPEG'
-
 class Connection(object):
     """Enclosing object through which the system is managed"""
 
@@ -76,7 +74,7 @@ class CollectionManager(object):
     ]
     
     """
-    def __init__(self, connection, key_prefix=u'', default_image=None, format=DEFAULT_IMAGE_FORMAT, derivative_specs=[], blacklist=[]):
+    def __init__(self, connection, key_prefix=u'', default_image=None, format=u'JPEG', derivative_specs=[], blacklist=[]):
         """Stash the parameters for use on individual processing"""
         self.connection = connection
         self.key_prefix = key_prefix
