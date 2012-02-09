@@ -7,4 +7,4 @@ __author__ = u'Mike Lewis'
 
 __all__ = ['Connection', 'CollectionManager']
 
-from prism import *
+from prism import Connection, CollectionManager
