@@ -110,23 +110,39 @@ class CollectionManager(object):
         if image_hash in self.blacklist:
             log.debug(u'image found in blacklist: {0}'.format(image_hash))
             return None
-        key_prefix = u'{prefix}{image_hash}'.format(
-            prefix=self.key_prefix, image_hash=image_hash)
+        key = self.hash_to_key(image_hash)
         # Store the original
         if save_original:
-            self.connection.save_image(key_prefix, image, self.format)
+            self.connection.save_image(key, image, self.format)
         # Process each requested derivative
         for derivative_spec in self.derivative_specs:
-            self._save_derivative_image(key_prefix, image, derivative_spec)
+            self._save_derivative_image(key, image, derivative_spec)
         # Return the image hash used
         return image_hash
+
+    def reprocess_derivatives(self, hash, force=False):
+        """Did your spec change? Make sure your derivatives are up to date"""
+        image = self.get_image(hash)
+        key = self.hash_to_key(hash)
+        if image:
+            for derivative_spec in self.derivative_specs:
+                self._save_derivative_image(key, image, derivative_spec, force)
+        else:
+            log.warning(u'Couldn\'t find image: {0}'.format(hash))
+
+    def hash_to_key(self, hash):
+        """Combines self.key_prefix with this hash"""
+        return u'{key_prefix}{hash}'.format(
+            key_prefix=self.key_prefix,
+            hash=hash)
 
     def get_url(self, image_hash):
         """Get the url, given this image_hash. Gets default if present and needed"""
         key = image_hash if image_hash else self.default_image
         if key:
-            return u'{bucket_url}{key_prefix}{key}'.format(
-                bucket_url=self.connection.bucket_url, key_prefix=self.key_prefix, key=key)
+            return u'{bucket_url}{key}'.format(
+                bucket_url=self.connection.bucket_url,
+                key=self.hash_to_key(image_hash))
         else:
             return None
 
@@ -135,12 +151,15 @@ class CollectionManager(object):
         url = self.get_url(image_hash)
         return image_util.load_image_from_url(url) if url else None
 
-    def _save_derivative_image(self, base_key, image, spec):
+    def _save_derivative_image(self, base_key, image, spec, force=False):
         """Generates and stores the derivative based upon a spec"""
-        derivative_image = self._apply_image_filters(image, spec['filters'])
         derivative_key = u'{base_key}{suffix}'.format(
-            base_key=base_key, suffix=spec.get('key_suffix', u''))
-        self.connection.save_image(derivative_key, derivative_image, self.format)
+            base_key=base_key,
+            suffix=spec.get('key_suffix', u''))
+        # If force or if key does not exist
+        if force or not self.connection.bucket.get_key(derivative_key):
+            derivative_image = self._apply_image_filters(image, spec['filters'])
+            self.connection.save_image(derivative_key, derivative_image, self.format)
 
     def _apply_image_filters(self, image, filters=[]):
         """Creates a derivative image from an original using a filter chain (first-to-last)"""
