@@ -142,7 +142,7 @@ class CollectionManager(object):
         if key:
             return u'{bucket_url}{key}'.format(
                 bucket_url=self.connection.bucket_url,
-                key=self.hash_to_key(image_hash))
+                key=self.hash_to_key(key))
         else:
             return None
 
