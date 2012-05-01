@@ -7,8 +7,10 @@ from cStringIO import StringIO
 import hashlib
 import Image
 import ImageFile
-ImageFile.MAXBLOCK = 1000000 # default is 64k (overcome 'Suspension not allowed here' bug in JPEG decoder)
 import urllib2
+
+# default is 64k (overcome 'Suspension not allowed here' bug in JPEG decoder)
+ImageFile.MAXBLOCK = 1000000
 
 
 
@@ -48,14 +50,14 @@ class ImageHelper(object):
         """Opens an image file and returns a jpeg binary string representation"""
         # Set default encoding params (but allow overrides)
         encoding_params = {
-            'quality': 90,
+            'quality': 95,
             'optimize': True,
         }
         encoding_params.update(params)
         # Fix the image if it's not RGB
         if self.image.mode != u'RGB':
             self.image = self.image.convert(u'RGB')
-        # Encode the new image to a string buffer and return 
+        # Encode the new image to a string buffer and return
         out_bytes = StringIO()
         self.image.save(out_bytes, u'JPEG', **params)
         return out_bytes.getvalue()
@@ -67,7 +69,7 @@ class ImageHelper(object):
             'optimize': True,
         }
         encoding_params.update(params)
-        # Encode the new image to a string buffer and return 
+        # Encode the new image to a string buffer and return
         out_bytes = StringIO()
         self.image.save(out_bytes, u'PNG', **params)
         return out_bytes.getvalue()
