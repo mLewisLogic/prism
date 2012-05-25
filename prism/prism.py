@@ -3,8 +3,6 @@
 # (c) 2012 Mike Lewis
 import logging; log = logging.getLogger(__name__)
 
-from boto.s3.connection import S3Connection
-
 from . import image_util
 
 
@@ -52,7 +50,7 @@ class Connection(object):
 class CollectionManager(object):
     """Management object through which collections of images are processed using the same settings.
     The collection_spec dictates the functionality that an instance will provide.
-    
+
     Parameters (with examples):
     key_prefix=u'users/' # Allows "foldering" of different collections within the same bucket
     format=u'JPEG', # format to save original and derivatives in
@@ -72,7 +70,7 @@ class CollectionManager(object):
         u'59610c7d0716126dc89c299bb92e4ca8',
         u'49f83104c9a168a633314f64723ee7a5',
     ]
-    
+
     """
     def __init__(self, connection, key_prefix=u'', default_image=None, format=u'JPEG', derivative_specs=[], blacklist=[]):
         """Stash the parameters for use on individual processing"""
@@ -98,37 +96,27 @@ class CollectionManager(object):
         image = image_util.load_image_from_file(image_file)
         return self.process_image(image)
 
-    def process_image(self, image, save_original=True):
-        """Process this image according to this collection's spec"""
+    def save_image(self, image, hash=None):
+        """Save this image to persistence"""
         # Make sure we're playing with a valid image
         if not image:
             log.error(u'image is invalid: {0}'.format(image))
             return None
-        # Get the md5 hash of the original image. We'll use this as the base s3 key.
-        image_hash = image_util.ImageHelper(image).md5_hash()
-        # Make sure this isn't in the blacklist
-        if image_hash in self.blacklist:
-            log.debug(u'image found in blacklist: {0}'.format(image_hash))
+        if not hash:
+            hash = image_util.ImageHelper(image).md5_hash()
+        key = self.hash_to_key(hash)
+        self.connection.save_image(key, image, self.format)
+
+    def process_derivatives(self, image, hash):
+        """Did your spec change? Make sure your derivatives are up to date"""
+        if not image:
+            log.error(u'image is invalid: {0}'.format(image))
             return None
-        key = self.hash_to_key(image_hash)
-        # Store the original
-        if save_original:
-            self.connection.save_image(key, image, self.format)
-        # Process each requested derivative
+        if not hash:
+            hash = image_util.ImageHelper(image).md5_hash()
+        key = self.hash_to_key(hash)
         for derivative_spec in self.derivative_specs:
             self._save_derivative_image(key, image, derivative_spec)
-        # Return the image hash used
-        return image_hash
-
-    def reprocess_derivatives(self, hash, force=False):
-        """Did your spec change? Make sure your derivatives are up to date"""
-        image = self.get_image(hash)
-        key = self.hash_to_key(hash)
-        if image:
-            for derivative_spec in self.derivative_specs:
-                self._save_derivative_image(key, image, derivative_spec, force)
-        else:
-            log.warning(u'Couldn\'t find image: {0}'.format(hash))
 
     def hash_to_key(self, hash):
         """Combines self.key_prefix with this hash"""
@@ -136,9 +124,9 @@ class CollectionManager(object):
             key_prefix=self.key_prefix,
             hash=hash)
 
-    def get_url(self, image_hash):
-        """Get the url, given this image_hash. Gets default if present and needed"""
-        key = image_hash if image_hash else self.default_image
+    def get_url(self, hash):
+        """Get the url, given this hash. Gets default if present and needed"""
+        key = hash if hash else self.default_image
         if key:
             return u'{bucket_url}{key}'.format(
                 bucket_url=self.connection.bucket_url,
@@ -146,9 +134,9 @@ class CollectionManager(object):
         else:
             return None
 
-    def get_image(self, image_hash):
+    def get_image(self, hash):
         """Get the actual image of this hash"""
-        url = self.get_url(image_hash)
+        url = self.get_url(hash)
         return image_util.load_image_from_url(url) if url else None
 
     def _save_derivative_image(self, base_key, image, spec, force=False):
@@ -167,3 +155,42 @@ class CollectionManager(object):
         for filter in filters:
             derivative = filter(derivative)
         return derivative
+
+
+
+
+
+    """
+    Old-style
+    """
+    def process_image(self, image, save_original=True):
+        """Process this image according to this collection's spec"""
+        # Make sure we're playing with a valid image
+        if not image:
+            log.error(u'image is invalid: {0}'.format(image))
+            return None
+            # Get the md5 hash of the original image. We'll use this as the base s3 key.
+        hash = image_util.ImageHelper(image).md5_hash()
+        # Make sure this isn't in the blacklist
+        if hash in self.blacklist:
+            log.debug(u'image found in blacklist: {0}'.format(hash))
+            return None
+        key = self.hash_to_key(hash)
+        # Store the original
+        if save_original:
+            self.connection.save_image(key, image, self.format)
+            # Process each requested derivative
+        for derivative_spec in self.derivative_specs:
+            self._save_derivative_image(key, image, derivative_spec)
+            # Return the image hash used
+        return hash
+
+    def reprocess_derivatives(self, hash, force=False):
+        """Did your spec change? Make sure your derivatives are up to date"""
+        image = self.get_image(hash)
+        key = self.hash_to_key(hash)
+        if image:
+            for derivative_spec in self.derivative_specs:
+                self._save_derivative_image(key, image, derivative_spec, force)
+        else:
+            log.warning(u'Couldn\'t find image: {0}'.format(hash))
