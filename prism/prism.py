@@ -41,6 +41,10 @@ class Connection(object):
             return
         return key.set_contents_from_string(image_str)
 
+    def delete_image(self, key):
+        """Remove this image from S3"""
+        return self.bucket.delete_key(key)
+
     def get_collection_manager(self, *args, **kwargs):
         """Gets a collection manager stemming from this connection"""
         return CollectionManager(self, *args, **kwargs)
@@ -138,6 +142,16 @@ class CollectionManager(object):
         """Get the actual image of this hash"""
         url = self.get_url(hash)
         return image_util.load_image_from_url(url) if url else None
+
+    def delete_image_by_hash(self, hash):
+        """Removes this image and derivatives from S3"""
+        base_key = self.hash_to_key(hash)
+        self.connection.delete_image(base_key)
+        for spec in self.derivative_specs:
+            derivative_key = u'{base_key}{suffix}'.format(
+                base_key=base_key,
+                suffix=spec.get('key_suffix', u''))
+            self.connection.delete_image(derivative_key)
 
     def _save_derivative_image(self, base_key, image, spec, force=False):
         """Generates and stores the derivative based upon a spec"""
