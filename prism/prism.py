@@ -100,52 +100,48 @@ class CollectionManager(object):
         image = image_util.load_image_from_file(image_file)
         return self.process_image(image)
 
-    def save_image(self, image, hash=None):
+    def save_image(self, image, image_id):
         """Save this image to persistence"""
         # Make sure we're playing with a valid image
         if not image:
             log.error(u'image is invalid: {0}'.format(image))
             return None
-        if not hash:
-            hash = image_util.ImageHelper(image).md5_hash()
-        key = self.hash_to_key(hash)
+        key = self.id_to_key(image_id)
         self.connection.save_image(key, image, self.format)
 
-    def process_derivatives(self, image, hash):
+    def process_derivatives(self, image, image_id):
         """Did your spec change? Make sure your derivatives are up to date"""
         if not image:
             log.error(u'image is invalid: {0}'.format(image))
             return None
-        if not hash:
-            hash = image_util.ImageHelper(image).md5_hash()
-        key = self.hash_to_key(hash)
+        key = self.id_to_key(image_id)
         for derivative_spec in self.derivative_specs:
             self._save_derivative_image(key, image, derivative_spec)
 
-    def hash_to_key(self, hash):
-        """Combines self.key_prefix with this hash"""
-        return u'{key_prefix}{hash}'.format(
+    def id_to_key(self, image_id):
+        """Combines self.key_prefix with this id"""
+        return u'{key_prefix}{id}'.format(
             key_prefix=self.key_prefix,
-            hash=hash)
+            id=image_id)
 
-    def get_url(self, hash):
+    def get_url(self, image_id):
         """Get the url, given this hash. Gets default if present and needed"""
-        key = hash if hash else self.default_image
+        key = image_id if image_id else self.default_image
         if key:
             return u'{bucket_url}{key}'.format(
                 bucket_url=self.connection.bucket_url,
-                key=self.hash_to_key(key))
+                key=self.id_to_key(key))
         else:
             return None
 
-    def get_image(self, hash):
-        """Get the actual image of this hash"""
-        url = self.get_url(hash)
+    def get_image(self, image_id):
+        """Get the actual image of this id"""
+        url = self.get_url(image_id)
         return image_util.load_image_from_url(url) if url else None
 
-    def delete_image_by_hash(self, hash):
+    def delete_image_by_id(self, image_id):
         """Removes this image and derivatives from S3"""
-        base_key = self.hash_to_key(hash)
+        base_key = self.id_to_key(image_id)
         self.connection.delete_image(base_key)
         for spec in self.derivative_specs:
             derivative_key = u'{base_key}{suffix}'.format(
@@ -189,7 +185,7 @@ class CollectionManager(object):
         if hash in self.blacklist:
             log.debug(u'image found in blacklist: {0}'.format(hash))
             return None
-        key = self.hash_to_key(hash)
+        key = self.id_to_key(hash)
         # Store the original
         if save_original:
             self.connection.save_image(key, image, self.format)
@@ -202,7 +198,7 @@ class CollectionManager(object):
     def reprocess_derivatives(self, hash, force=False):
         """Did your spec change? Make sure your derivatives are up to date"""
         image = self.get_image(hash)
-        key = self.hash_to_key(hash)
+        key = self.id_to_key(hash)
         if image:
             for derivative_spec in self.derivative_specs:
                 self._save_derivative_image(key, image, derivative_spec, force)
