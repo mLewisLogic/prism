@@ -115,8 +115,12 @@ class CollectionManager(object):
             log.error(u'image is invalid: {0}'.format(image))
             return None
         key = self.id_to_key(image_id)
+        derivs = dict()
         for derivative_spec in self.derivative_specs:
-            self._save_derivative_image(key, image, derivative_spec, **kwargs)
+            deriv = self._save_derivative_image(key, image, derivative_spec, **kwargs)
+            if deriv:
+                derivs[derivative_spec.get('key_suffix')] = deriv
+        return derivs
 
     def id_to_key(self, image_id):
         """Combines self.key_prefix with this id"""
@@ -158,6 +162,8 @@ class CollectionManager(object):
         if force or not self.connection.bucket.get_key(derivative_key):
             derivative_image = self._apply_image_filters(image, spec['filters'])
             self.connection.save_image(derivative_key, derivative_image, self.format)
+            return derivative_image
+        return None
 
     def _apply_image_filters(self, image, filters=[]):
         """Creates a derivative image from an original using a filter chain (first-to-last)"""
