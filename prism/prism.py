@@ -109,14 +109,14 @@ class CollectionManager(object):
         key = self.id_to_key(image_id)
         self.connection.save_image(key, image, self.format)
 
-    def process_derivatives(self, image, image_id):
+    def process_derivatives(self, image, image_id, **kwargs):
         """Did your spec change? Make sure your derivatives are up to date"""
         if not image:
             log.error(u'image is invalid: {0}'.format(image))
             return None
         key = self.id_to_key(image_id)
         for derivative_spec in self.derivative_specs:
-            self._save_derivative_image(key, image, derivative_spec)
+            self._save_derivative_image(key, image, derivative_spec, **kwargs)
 
     def id_to_key(self, image_id):
         """Combines self.key_prefix with this id"""
